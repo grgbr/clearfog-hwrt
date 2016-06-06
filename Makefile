@@ -17,7 +17,7 @@ ROOT           := $(OUT)/root
 IMG            := $(OUT)/img
 TARGET_CFLAGS  :=
 TARGET_LDFLAGS :=
-PROJECTS       := libtool util-linux kmod uboot linux busybox libc $(LIBC)
+PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc $(LIBC)
 
 ################################################################################
 # Special characters
@@ -234,6 +234,39 @@ define uninstall-libtool
 endef
 
 ###############################################################################
+# host dtc
+###############################################################################
+
+define clone-dtc
+	$(call git_clone_tag, \
+	  git://git.kernel.org/pub/scm/utils/dtc/dtc.git, \
+	  dtc, \
+	  v1.4.1)
+endef
+
+define build-dtc
+	rsync -delete --exclude '.*' --archive $(call srcdir,dtc) $(BUILD)
+	$(MAKE) -C $(call builddir,dtc) PREFIX=$(HOSTTOOL)
+endef
+
+define install-dtc
+	$(MAKE) -C $(call builddir,dtc) install-bin PREFIX=$(HOSTTOOL)
+endef
+
+define clean-dtc
+	$(MAKE) -C $(call builddir,dtc) clean PREFIX=$(HOSTTOOL)
+endef
+
+define uninstall-dtc
+	$(RM) $(HOSTTOOL)/bin/dtdiff \
+	      $(HOSTTOOL)/bin/convert-dtsv0 \
+	      $(HOSTTOOL)/bin/fdtput \
+	      $(HOSTTOOL)/bin/fdtget \
+	      $(HOSTTOOL)/bin/dtc \
+	      $(HOSTTOOL)/bin/fdtdump
+endef
+
+###############################################################################
 # virtual target libc
 ###############################################################################
 
@@ -270,7 +303,7 @@ uboot_config    := $(CFG)/uboot.config
 uboot_defconfig := clearfog_defconfig
 uboot_mkflags   := ARCH=$(ARCH) \
                    CROSS_COMPILE=$(CROSS_COMPILE) \
-                   DTC=$(TOOLCHAIN)/bin/dtc \
+                   DTC=$(HOSTTOOL)/bin/dtc \
                    O=$(call builddir,uboot) \
                    V=$(V)
 
@@ -341,6 +374,8 @@ uninstall-uboot:
 .PHONY: uboot-%
 uboot-%: $(call builddir,uboot)/.cloned
 	$(MAKE) -C $(call srcdir,u-boot) $(uboot_mkflags) $(subst uboot-,,$@)
+
+$(call deps,uboot,config,dtc,installed)
 
 ################################################################################
 # kmod
@@ -594,6 +629,8 @@ uninstall-linux:
 .PHONY: linux-%
 linux-%: $(call builddir,linux)/.cloned
 	$(MAKE) -C $(call srcdir,linux) $(linux_mkflags) $(subst linux-,,$@)
+
+$(call deps,linux,config,dtc,installed)
 
 ################################################################################
 # Busybox
