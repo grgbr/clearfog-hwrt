@@ -16,7 +16,7 @@ TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -march=armv7-a \
                   -fpie -O2
 TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
                   -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
-PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng
+PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng libm
 
 ################################################################################
 # Build directory hierarchy
@@ -410,6 +410,20 @@ libc-%: $(call builddir,libc)/.cloned
 	env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng $(subst libc-,,$@)
 
 $(call deps,libc,config,ctng,installed)
+
+###############################################################################
+# libm
+###############################################################################
+
+define install-libm
+	$(call _root_install_lib, \
+	  $(LIBC_SYSROOT)/lib/libm.so.6, \
+	  $(ROOT)/lib/libm.so.6)
+endef
+
+define uninstall-libm
+	$(RM) $(ROOT)/lib/libm.so.6
+endef
 
 ################################################################################
 # U-boot
@@ -835,6 +849,7 @@ busybox-%: $(call builddir,busybox)/.cloned
 		$(subst busybox-,,$@)
 
 $(call deps,busybox,config,libc,built)
+$(call deps,busybox,installed,libm,installed)
 
 ################################################################################
 # Make bootable SD
