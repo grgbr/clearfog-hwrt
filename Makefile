@@ -246,15 +246,15 @@ endef
 
 define build-dtc
 	rsync -delete --exclude '.*' --archive $(call srcdir,dtc) $(BUILD)
-	$(MAKE) -C $(call builddir,dtc) PREFIX=$(HOSTTOOL)
+	+$(MAKE) -C $(call builddir,dtc) PREFIX=$(HOSTTOOL)
 endef
 
 define install-dtc
-	$(MAKE) -C $(call builddir,dtc) install-bin PREFIX=$(HOSTTOOL)
+	+$(MAKE) -C $(call builddir,dtc) install-bin PREFIX=$(HOSTTOOL)
 endef
 
 define clean-dtc
-	$(MAKE) -C $(call builddir,dtc) clean PREFIX=$(HOSTTOOL)
+	+$(MAKE) -C $(call builddir,dtc) clean PREFIX=$(HOSTTOOL)
 endef
 
 define uninstall-dtc
