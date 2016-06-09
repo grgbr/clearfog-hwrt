@@ -380,7 +380,13 @@ install-libc: $(call builddir,libc)/.installed
 $(call builddir,libc)/.installed: $(call builddir,libc)/.built
 	$(call _root_install_lib, \
 	  $(LIBC_SYSROOT)/lib/libc.so.6, \
-	  $(ROOT)/lib/libc.6.so)
+	  $(ROOT)/lib/libc.so.6)
+	$(call _root_install_lib, \
+	  $(LIBC_SYSROOT)/lib/libgcc_s.so.1, \
+	  $(ROOT)/lib/libgcc_s.so.1)
+	$(call _root_install_lib, \
+	  $(LIBC_SYSROOT)/lib/ld-linux-armhf.so.3, \
+	  $(ROOT)/lib/ld-linux-armhf.so.3)
 	touch $@
 
 .PHONY: clean-libc
@@ -394,7 +400,8 @@ clean-libc: uninstall-libc
 
 .PHONY: uninstall-libc
 uninstall-libc:
-	$(RM) $(ROOT)/lib/libc.6.so
+	$(RM) $(ROOT)/lib/libc.6.so $(ROOT)/lib/libgcc_s.so.1 \
+		$(ROOT)/lib/ld-linux-armhf.so.3
 	$(RM) $(call builddir,libc)/.installed
 
 .PHONY: libc-%
