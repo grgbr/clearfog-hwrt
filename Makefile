@@ -1,23 +1,38 @@
-V              ?= 0
+# Verbosity
+V ?= 0
+
+################################################################################
+# Platform / product specific settings
+################################################################################
 ARCH           := arm
-TARGET         := arm-linux-gnueabihf
+VENDOR         := armada38x
+TARGET         := arm-$(VENDOR)-linux-gnueabihf
 DTB            := armada-388-clearfog.dtb
-TOOLCHAIN      := $(HOME)/build/clearfog/output/host/usr
-#TOOLCHAIN      := /home/gboirie/dev/clearfog/output/host/usr
-CROSS_COMPILE  := $(TOOLCHAIN)/bin/$(TARGET)-
-BUILDROOT_LIBC := $(TOOLCHAIN)/arm-buildroot-linux-gnueabihf/sysroot
-LIBC           := buildroot-libc
+TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -march=armv7-a \
+                  -mcpu=cortex-a9 -mtune=cortex-a9 -mfpu=neon-fp16 \
+                  -mhard-float -mfloat-abi=hard -ffast-math \
+                  -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+                  -ffunction-sections -fdata-sections -ffat-lto-objects -flto \
+                  -fpie -O2
+TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
+                  -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
+PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng
+
+################################################################################
+# Build directory hierarchy
+################################################################################
 BUILD          := $(CURDIR)/build
 SRC            := $(CURDIR)/src
 CFG            := $(CURDIR)/cfg
+TARBALLS       := $(CURDIR)/tarballs
 OUT            := $(CURDIR)/out
 HOSTTOOL       := $(OUT)/host
 STAGE          := $(OUT)/stage
 ROOT           := $(OUT)/root
 IMG            := $(OUT)/img
-TARGET_CFLAGS  :=
-TARGET_LDFLAGS :=
-PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc $(LIBC)
+TOOLCHAIN      := $(HOSTTOOL)/$(TARGET)
+CROSS_COMPILE  := $(TOOLCHAIN)/bin/$(TARGET)-
+LIBC_SYSROOT   := $(TOOLCHAIN)/$(TARGET)/sysroot
 
 ################################################################################
 # Special characters
@@ -52,9 +67,10 @@ HOST_AUTOCONF_INSTALL_ARGS   := $(HOST_AUTOCONF_BUILD_ARGS)
 
 TARGET_CC                    := $(CROSS_COMPILE)gcc
 TARGET_CXX                   := $(CROSS_COMPILE)g++
-TARGET_AR                    := $(CROSS_COMPILE)ar
+TARGET_AR                    := $(CROSS_COMPILE)gcc-ar
 TARGET_AS                    := $(CROSS_COMPILE)as
-TARGET_RANLIB                := $(CROSS_COMPILE)ranlib
+TARGET_RANLIB                := $(CROSS_COMPILE)gcc-ranlib
+TARGET_NM                    := $(CROSS_COMPILE)gcc-nm
 TARGET_LD                    := $(CROSS_COMPILE)ld
 TARGET_STRIP                 := $(CROSS_COMPILE)strip
 TARGET_CPPFLAGS              := -I$(STAGE)/usr/include
@@ -136,6 +152,7 @@ define target_autoconf_env
 	AR="$(TARGET_AR)" \
 	AS="$(TARGET_AS)" \
 	RANLIB="$(TARGET_RANLIB)" \
+	NM="$(TARGET_NM)" \
 	LD="$(TARGET_LD)" \
 	STRIP="$(TARGET_STRIP)" \
 	PKG_CONFIG_LIBDIR="" \
@@ -202,6 +219,41 @@ endef
 all: install
 
 ###############################################################################
+# crosstool-ng
+###############################################################################
+
+define clone-ctng
+	$(call git_clone_branch, \
+	  https://github.com/crosstool-ng/crosstool-ng.git,ctng,1.22)
+endef
+
+define autogen-ctng
+	rsync -delete --exclude '.cloned' --archive $(call srcdir,ctng) $(BUILD)
+	cd $(call builddir,ctng) && ./bootstrap
+endef
+
+define config-ctng
+	cd $(call builddir,ctng) && \
+		$(call builddir,ctng)/configure --prefix=$(HOSTTOOL)
+endef
+
+define build-ctng
+	+$(call host_autoconf_build,ctng) MAKELEVEL=0
+endef
+
+define install-ctng
+	+$(call host_autoconf_install,ctng) MAKELEVEL=0
+endef
+
+define clean-ctng
+	+$(call host_autoconf_clean,ctng) MAKELEVEL=0
+endef
+
+define uninstall-ctng
+	+$(call host_autoconf_uninstall,ctng) MAKELEVEL=0
+endef
+
+###############################################################################
 # host libtool
 ###############################################################################
 
@@ -232,6 +284,8 @@ endef
 define uninstall-libtool
 	$(call host_autoconf_uninstall,libtool)
 endef
+
+$(call deps,libtool,configured,libc,built)
 
 ###############################################################################
 # host dtc
@@ -267,32 +321,88 @@ define uninstall-dtc
 endef
 
 ###############################################################################
-# virtual target libc
+# libc based on crosstool-ng
 ###############################################################################
 
-config-libc: config-$(LIBC)
+custom_projects += libc
+libc_config     := $(CFG)/ctng.config
+libc_envflags   := BUILD="$(call builddir,libc)" \
+                   ROOT="$(HOSTTOOL)" \
+                   VENDOR="$(VENDOR)" \
+                   LINUX_SRC="$(call srcdir,linux)" \
+                   DOWNLOAD="$(TARBALLS)" \
+                   DEFCONFIG="$(libc_config)"
+ifneq ($(V),0)
+libc_envflags   += V=2
+endif
 
-build-libc: build-$(LIBC)
+$(call builddir,libc): | $(BUILD)
+	$(MKDIR) $@
 
-clean-libc: clean-$(LIBC)
+$(call builddir,libc)/.config: | $(call builddir,libc)
+	+if test ! -f $(libc_config); then \
+		echo "missing libc configuration file \"$(libc_config)\""; \
+		exit 1; \
+	fi; \
+	if test ! -f $@; then \
+		cd $(call builddir,libc); \
+		env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng defconfig; \
+	fi
 
-install-libc: install-$(LIBC)
+.PHONY: defconfig-libc
+defconfig-libc: | $(call builddir,libc)
+	+if test ! -f $(libc_config); then \
+		echo "missing libc configuration file \"$(libc_config)\""; \
+		exit 1; \
+	fi; \
+	if test ! -f $@; then \
+		cd $(call builddir,libc); \
+		env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng defconfig; \
+	fi
 
-uninstall-libc: uninstall-$(LIBC)
 
-###############################################################################
-# buildroot libc
-###############################################################################
+.PHONY: saveconfig-libc
+saveconfig-libc: | $(CFG)
+	+if test -f "$(call builddir,libc)/.config"; then \
+		cd $(call builddir,libc); \
+		env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng savedefconfig; \
+	fi
 
-define install-buildroot-libc
+.PHONY: build-libc
+build-libc: $(call builddir,libc)/.built
+$(call builddir,libc)/.built: $(call builddir,libc)/.config | $(TARBALLS)
+	+cd $(call builddir,libc); \
+	env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng build
+	touch $@
+
+.PHONY: install-libc
+install-libc: $(call builddir,libc)/.installed
+$(call builddir,libc)/.installed: $(call builddir,libc)/.built
 	$(call _root_install_lib, \
-	  $(BUILDROOT_LIBC)/lib/libc.so.6, \
+	  $(LIBC_SYSROOT)/lib/libc.so.6, \
 	  $(ROOT)/lib/libc.6.so)
-endef
+	touch $@
 
-define uninstall-buildroot-libc
+.PHONY: clean-libc
+clean-libc: uninstall-libc
+	+if test -f "$(call builddir,libc)/.config" -a \
+		-f "$(call builddir,libc)/.built"; then \
+		cd $(call builddir,libc); \
+		env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng clean; \
+	fi
+	$(RM) $(call builddir,libc)/.built
+
+.PHONY: uninstall-libc
+uninstall-libc:
 	$(RM) $(ROOT)/lib/libc.6.so
-endef
+	$(RM) $(call builddir,libc)/.installed
+
+.PHONY: libc-%
+libc-%: $(call builddir,libc)/.cloned
+	+cd $(call builddir,libc); \
+	env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng $(subst libc-,,$@)
+
+$(call deps,libc,config,ctng,installed)
 
 ################################################################################
 # U-boot
@@ -375,6 +485,7 @@ uninstall-uboot:
 uboot-%: $(call builddir,uboot)/.cloned
 	$(MAKE) -C $(call srcdir,u-boot) $(uboot_mkflags) $(subst uboot-,,$@)
 
+$(call deps,uboot,config,libc,built)
 $(call deps,uboot,config,dtc,installed)
 
 ################################################################################
@@ -630,6 +741,7 @@ uninstall-linux:
 linux-%: $(call builddir,linux)/.cloned
 	$(MAKE) -C $(call srcdir,linux) $(linux_mkflags) $(subst linux-,,$@)
 
+$(call deps,linux,config,libc,built)
 $(call deps,linux,config,dtc,installed)
 
 ################################################################################
@@ -714,6 +826,8 @@ uninstall-busybox:
 busybox-%: $(call builddir,busybox)/.cloned
 	$(MAKE) -C $(call srcdir,busybox) $(busybox_mkflags) \
 		$(subst busybox-,,$@)
+
+$(call deps,busybox,config,libc,built)
 
 ################################################################################
 # Make bootable SD
@@ -816,7 +930,7 @@ $(foreach t,$(PROJECTS),clobber-$(t)): clobber-%: uninstall-%
            $(BUILD)/%/.installed
 
 $(ROOT) $(IMG): | $(OUT)
-$(CFG) $(BUILD) $(ROOT) $(IMG) $(OUT) $(SRC):
+$(CFG) $(BUILD) $(ROOT) $(IMG) $(OUT) $(SRC) $(TARBALLS):
 	$(MKDIR) -p $@
 
 ###############################################################################
