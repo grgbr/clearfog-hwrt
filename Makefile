@@ -405,11 +405,12 @@ uninstall-libc:
 	$(RM) $(call builddir,libc)/.installed
 
 .PHONY: libc-%
-libc-%: $(call builddir,libc)/.cloned
+libc-%: $(call builddir,ctng)/.installed
 	+cd $(call builddir,libc); \
 	env $(libc_envflags) $(HOSTTOOL)/bin/ct-ng $(subst libc-,,$@)
 
 $(call deps,libc,config,ctng,installed)
+$(call deps,libc,config,linux,cloned)
 
 ###############################################################################
 # libm
@@ -424,6 +425,8 @@ endef
 define uninstall-libm
 	$(RM) $(ROOT)/lib/libm.so.6
 endef
+
+$(call deps,libm,installed,libc,installed)
 
 ################################################################################
 # U-boot
