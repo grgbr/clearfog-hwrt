@@ -739,8 +739,7 @@ $(call builddir,linux)/.built: $(call builddir,linux)/.config
 install-linux: $(call builddir,linux)/.installed
 $(call builddir,linux)/.installed: $(call builddir,linux)/.built | \
                                    $(ROOT) $(IMG)
-	$(MAKE) -C $(call srcdir,linux) $(linux_mkflags) modules_install \
-		firmware_install
+	$(MAKE) -C $(call srcdir,linux) $(linux_mkflags) modules_install
 	$(LN) $(call builddir,linux)/arch/$(ARCH)/boot/zImage $(IMG)/zImage
 	$(LN) $(call builddir,linux)/arch/$(ARCH)/boot/Image $(IMG)/Image
 	$(LN) $(call builddir,linux)/arch/$(ARCH)/boot/dts/$(DTB) $(IMG)/$(DTB)
