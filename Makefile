@@ -24,6 +24,7 @@ PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng \
 BUILD          := $(CURDIR)/build
 SRC            := $(CURDIR)/src
 CFG            := $(CURDIR)/cfg
+BOOT           := $(CURDIR)/boot
 SKEL           := $(CURDIR)/skel
 TARBALLS       := $(CURDIR)/tarballs
 OUT            := $(CURDIR)/out
@@ -434,6 +435,7 @@ $(call deps,libm,installed,libc,installed)
 ################################################################################
 
 custom_projects += uboot
+uboot_envsz     := 65536
 uboot_config    := $(CFG)/uboot.config
 uboot_defconfig := clearfog_defconfig
 uboot_mkflags   := ARCH=$(ARCH) \
@@ -484,9 +486,12 @@ $(call builddir,uboot)/.built: $(call builddir,uboot)/.config
 	$(MAKE) -C $(call srcdir,u-boot) $(uboot_mkflags) all
 	touch $@
 
+$(IMG)/uboot.env: $(BOOT)/uboot.env  $(call builddir,uboot)/.built | $(IMG)
+	$(call builddir,uboot)/tools/mkenvimage -s $(uboot_envsz) -o $@ $<
+
 .PHONY: install-uboot
 install-uboot: $(call builddir,uboot)/.installed
-$(call builddir,uboot)/.installed: $(call builddir,uboot)/.built | $(IMG)
+$(call builddir,uboot)/.installed: $(IMG)/uboot.env
 	$(LN) $(call builddir,uboot)/u-boot-dtb.bin $(IMG)/u-boot-dtb.bin
 	$(LN) $(call builddir,uboot)/u-boot-nodtb.bin $(IMG)/u-boot-nodtb.bin
 	$(LN) $(call builddir,uboot)/u-boot-spl.kwb $(IMG)/u-boot-spl.kwb
@@ -503,7 +508,7 @@ clean-uboot: uninstall-uboot
 .PHONY: uninstall-uboot
 uninstall-uboot:
 	$(RM) $(IMG)/u-boot-dtb.bin $(IMG)/u-boot-nodtb.bin \
-		$(IMG)/u-boot-spl.kwb
+		$(IMG)/u-boot-spl.kwb $(IMG)/uboot.env
 	$(RM) $(call builddir,uboot)/.installed
 
 .PHONY: uboot-%
@@ -977,6 +982,14 @@ endef
 $(call builddir,initrd)/.installed: $(foreach p, \
                                       $(filter-out initrd,$(PROJECTS)), \
                                       $(call builddir,$(p))/.installed)
+
+################################################################################
+# Make bootable SD
+################################################################################
+
+.PHONY: sdcard
+sdcard: $(call builddir,uboot)/.installed
+	scripts/flash_sdcard.sh $(IMG)/u-boot-spl.kwb $(IMG)/uboot.env
 
 ###############################################################################
 # xz
