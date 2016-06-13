@@ -8,12 +8,11 @@ ARCH           := arm
 VENDOR         := armada38x
 TARGET         := arm-$(VENDOR)-linux-gnueabihf
 DTB            := armada-388-clearfog.dtb
-TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -march=armv7-a \
-                  -mcpu=cortex-a9 -mtune=cortex-a9 -mfpu=neon-fp16 \
-                  -mhard-float -mfloat-abi=hard -ffast-math \
-                  -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
-                  -ffunction-sections -fdata-sections -ffat-lto-objects -flto \
-                  -fpie -O2
+TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -mcpu=cortex-a9 \
+                  -mtune=cortex-a9 -mfpu=neon-fp16 -mhard-float \
+                  -mfloat-abi=hard -ffast-math -D_FORTIFY_SOURCE=2 \
+                  -fstack-protector-strong -ffunction-sections -fdata-sections \
+                  -ffat-lto-objects -flto -fpie -O2
 TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
                   -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
 PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng libm
