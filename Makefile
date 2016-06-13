@@ -15,7 +15,8 @@ TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -mcpu=cortex-a9 \
                   -ffat-lto-objects -flto -fpie -O2
 TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
                   -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
-PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng libm
+PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng \
+                  libm initrd
 
 ################################################################################
 # Build directory hierarchy
@@ -23,6 +24,7 @@ PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng libm
 BUILD          := $(CURDIR)/build
 SRC            := $(CURDIR)/src
 CFG            := $(CURDIR)/cfg
+SKEL           := $(CURDIR)/skel
 TARBALLS       := $(CURDIR)/tarballs
 OUT            := $(CURDIR)/out
 HOSTTOOL       := $(OUT)/host
@@ -955,6 +957,26 @@ $(foreach t,$(PROJECTS),clobber-$(t)): clobber-%: uninstall-%
 $(ROOT) $(IMG): | $(OUT)
 $(CFG) $(BUILD) $(ROOT) $(IMG) $(OUT) $(SRC) $(TARBALLS):
 	$(MKDIR) -p $@
+
+################################################################################
+# Populate root fs with skeleton content then build complete initramfs
+################################################################################
+
+define install-initrd
+	$(CP) -a $(SKEL)/* $(ROOT)
+	cd $(ROOT) && find . | cpio -o -H newc | gzip > $(IMG)/rootfs.cpio.gz
+	$(call builddir,uboot)/tools/mkimage -A arm -C none -T ramdisk \
+		-n "uInitramfs" -d $(IMG)/rootfs.cpio.gz $(IMG)/uInitramfs
+endef
+
+define uninstall-initrd
+	$(RM) $(IMG)/uInitramfs $(IMG)/rootfs.cpio.gz
+	find $(SKEL) -type f -printf '$(ROOT)/%P\n' | xargs $(RM)
+endef
+
+$(call builddir,initrd)/.installed: $(foreach p, \
+                                      $(filter-out initrd,$(PROJECTS)), \
+                                      $(call builddir,$(p))/.installed)
 
 ###############################################################################
 # xz

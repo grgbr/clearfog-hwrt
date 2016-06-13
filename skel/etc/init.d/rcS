@@ -1,0 +1,10 @@
+#!/bin/sh
+
+modprobe i2c-bcm2708
+modprobe i2c-dev
+modprobe industrialio-sw-trigger
+modprobe iio-trig-hrtimer
+modprobe ak8975
+modprobe ms5611_i2c
+modprobe st_pressure_i2c
+modprobe inv-mpu6050-i2c

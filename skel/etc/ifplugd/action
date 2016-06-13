@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ -z "$1" ] || [ -z "$2" ] ; then
+	echo "wrong arguments for ifplugd"
+	exit 1
+fi
+
+if [ "$1" != "eth2" ]; then
+	echo "unmanaged interface for ifplugd"
+	exit 1
+fi
+
+if [ "$2" = "up" ]; then
+	echo "ifplugd up"
+	exec /sbin/ifconfig $1 192.168.100.2 up
+fi
+
+if [ "$2" = "down" ]; then 
+	echo "ifplugd down"
+	exec /sbin/ifconfig $1 down
+fi
