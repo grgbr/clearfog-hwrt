@@ -969,7 +969,8 @@ $(CFG) $(BUILD) $(ROOT) $(IMG) $(OUT) $(SRC) $(TARBALLS):
 
 define install-initrd
 	$(CP) -a $(SKEL)/* $(ROOT)
-	cd $(ROOT) && find . | cpio -o -H newc | gzip > $(IMG)/rootfs.cpio.gz
+	cd $(ROOT) && find . | cpio -o -H newc --owner 0.0 | gzip > \
+		$(IMG)/rootfs.cpio.gz
 	$(call builddir,uboot)/tools/mkimage -A arm -C none -T ramdisk \
 		-n "uInitramfs" -d $(IMG)/rootfs.cpio.gz $(IMG)/uInitramfs
 endef
