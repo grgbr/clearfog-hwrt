@@ -448,10 +448,10 @@ $(call builddir,uboot): | $(BUILD)
 	$(MKDIR) $@
 
 $(call builddir,uboot)/.cloned: | $(call builddir,uboot) $(SRC)
-	$(call git_clone_sha1, \
-	  git://git.denx.de/u-boot.git, \
+	$(call git_clone_branch, \
+	  git@github.com:grgbr/u-boot.git, \
 	  u-boot, \
-	  cf77f6ffd96a243d2e4f81fe8bc0aa4fe8fef623)
+	  clearfog-tftpdstp)
 	touch $@
 
 .PHONY: defconfig-uboot
