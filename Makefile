@@ -551,6 +551,7 @@ endef
 define install-kmod
 	$(call target_autoconf_install,kmod)
 	$(call root_install_bin,sbin/kmod,sbin/kmod)
+	$(LN) kmod $(ROOT)/sbin/lsmod
 	$(LN) kmod $(ROOT)/sbin/insmod
 	$(LN) kmod $(ROOT)/sbin/rmmod
 	$(LN) kmod $(ROOT)/sbin/modprobe
@@ -562,7 +563,7 @@ endef
 
 define uninstall-kmod
 	$(call target_autoconf_uninstall,kmod)
-	$(RM) $(ROOT)/sbin/insmod $(ROOT)/sbin/rmmod $(ROOT)/sbin/modprobe
+	$(RM) $(addprefix $(ROOT)/sbin/, lsmod insmod rmmod modprobe)
 	$(RM) $(ROOT)/sbin/kmod
 endef
 
