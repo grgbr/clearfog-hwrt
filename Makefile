@@ -196,12 +196,17 @@ define target_autoconf_uninstall
 endef
 
 define stage_install
-	$(INSTALL) -D -m755 $(call builddir,$(1))/$(2) $(STAGE)/$(3)
+	$(INSTALL) -D -m755 $(call builddir,$(1))/$(strip $(2)) \
+		$(STAGE)/$(strip $(3))
+endef
+
+define _root_install_bin
+	$(INSTALL) -D -m755 $(1) $(2)
+	$(TARGET_STRIP) --strip-all $(2)
 endef
 
 define root_install_bin
-	$(INSTALL) -D -m755 $(STAGE)/$(1) $(ROOT)/$(2)
-	$(TARGET_STRIP) --strip-all $(ROOT)/$(2)
+	$(call _root_install_bin,$(STAGE)/$(strip $(1)),$(ROOT)/$(strip $(2)))
 endef
 
 define _root_install_lib
