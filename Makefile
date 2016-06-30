@@ -16,7 +16,7 @@ TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -mcpu=cortex-a9 \
 TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
                   -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
 PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng \
-                  libm initrd
+                  libm initrd strace
 
 ################################################################################
 # Build directory hierarchy
@@ -434,6 +434,21 @@ define uninstall-libm
 endef
 
 $(call deps,libm,installed,libc,installed)
+
+###############################################################################
+# strace
+###############################################################################
+
+define install-strace
+	$(call _root_install_bin,$(LIBC_SYSROOT)/../debug-root/usr/bin/strace, \
+	  $(ROOT)/usr/bin/strace)
+endef
+
+define uninstall-strace
+	$(RM) $(ROOT)/usr/bin/strace
+endef
+
+$(call deps,strace,installed,libc,installed)
 
 ################################################################################
 # U-boot
