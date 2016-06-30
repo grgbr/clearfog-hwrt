@@ -1,0 +1,19 @@
+get_vers()
+{
+	find ${1:-.} -maxdepth 1 -type d -name "v[0-9]*" -printf "%f\n" | \
+		cut -f2 -d'v' | \
+		sort -n | \
+		tail -n 1
+}
+
+get_branch()
+{
+	cd $1 && git branch | sed -n '/^\*/s/\*[ \t]\+//p'
+}
+
+topdir=$(realpath $(dirname $0)/..)
+kerndir=$topdir/src/linux
+if [ ! -d "$kerndir" ]; then
+	echo "invalid kernel source directory" >&2
+	exit 1
+fi
