@@ -16,7 +16,7 @@ TARGET_CFLAGS  := -marm -mabi=aapcs-linux -mno-thumb-interwork -mcpu=cortex-a9 \
 TARGET_LDFLAGS := -Wl,-z,relro -Wl,-z,now -Wl,-z,combreloc -Wl,--gc-sections \
                   -pie -fpie -flto -fuse-linker-plugin -fuse-ld=gold -O2
 PROJECTS       := libtool dtc util-linux kmod uboot linux busybox libc ctng \
-                  libm initrd strace
+                  libm initrd strace librt libpthread linuxptp
 
 ################################################################################
 # Build directory hierarchy
@@ -436,6 +436,38 @@ endef
 $(call deps,libm,installed,libc,installed)
 
 ###############################################################################
+# libpthread
+###############################################################################
+
+define install-libpthread
+	$(call _root_install_lib, \
+	  $(LIBC_SYSROOT)/lib/libpthread.so.0, \
+	  $(ROOT)/lib/libpthread.so.0)
+endef
+
+define uninstall-libpthread
+	$(RM) $(ROOT)/lib/libpthread.so.0
+endef
+
+$(call deps,libpthread,installed,libc,installed)
+
+###############################################################################
+# librt
+###############################################################################
+
+define install-librt
+	$(call _root_install_lib, \
+	  $(LIBC_SYSROOT)/lib/librt.so.1, \
+	  $(ROOT)/lib/librt.so.1)
+endef
+
+define uninstall-librt
+	$(RM) $(ROOT)/lib/librt.so.1
+endef
+
+$(call deps,librt,installed,libpthread,installed)
+
+###############################################################################
 # strace
 ###############################################################################
 
@@ -588,6 +620,52 @@ define uninstall-kmod
 endef
 
 $(call deps,kmod,configured,libtool,installed)
+
+################################################################################
+# linuxptp
+################################################################################
+
+linuxptp_bins := ptp4l pmc phc2sys hwstamp_ctl phc_ctl
+
+define clone-linuxptp
+	$(call git_clone_tag, \
+	  git://git.code.sf.net/p/linuxptp/code, \
+	  linuxptp, \
+	  v1.6)
+endef
+
+define autogen-linuxptp
+	rsync -delete --exclude '.cloned' --archive $(call srcdir,linuxptp) \
+		$(BUILD)
+endef
+
+define build-linuxptp
+	$(MAKE) -C $(call builddir,linuxptp) CC="$(TARGET_CC)" \
+		EXTRA_CFLAGS="$(TARGET_CFLAGS)"
+endef
+
+define install-linuxptp
+	$(MAKE) -C $(call builddir,linuxptp) install DESTDIR="$(STAGE)" \
+		prefix=/usr mandir=/usr/share/man \
+		EXTRA_LDFLAGS="$(TARGET_LDFLAGS)"
+	$(foreach b, \
+	  $(linuxptp_bins), \
+	  $(call root_install_bin,usr/sbin/$(b),usr/sbin/$(b));)
+endef
+
+define clean-linuxptp
+	$(MAKE) -C $(call builddir,linuxptp) distclean
+endef
+
+define uninstall-linuxptp
+	$(RM) $(addprefix $(ROOT)/usr/sbin/, $(linuxptp_bins))
+	$(RM) $(addprefix $(STAGE)/usr/sbin/, $(linuxptp_bins) timemaster)
+	$(RM) $(addprefix $(STAGE)/usr/share/man/man8/, \
+		$(addsuffix .8,$(linuxptp_bins) timemaster))
+endef
+
+$(call deps,linuxptp,built,libm,installed)
+$(call deps,linuxptp,built,librt,installed)
 
 ################################################################################
 # util-linux
