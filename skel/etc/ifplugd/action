@@ -5,7 +5,7 @@ if [ -z "$1" ] || [ -z "$2" ] ; then
 	exit 1
 fi
 
-if [ "$1" != "eth2" ]; then
+if [ "$1" != "eth0" ]; then
 	echo "unmanaged interface for ifplugd"
 	exit 1
 fi

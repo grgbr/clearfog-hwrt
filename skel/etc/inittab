@@ -61,7 +61,7 @@
 
 ::respawn:/sbin/syslogd -n
 ::respawn:/sbin/klogd -n
-::respawn:/usr/sbin/ifplugd -nMlfI -u0 -d1 -i eth2 -r /etc/ifplugd/action
+::respawn:/usr/sbin/ifplugd -nMlfI -u0 -d1 -i eth0 -r /etc/ifplugd/action
 
 # /bin/sh invocations on selected ttys
 #
